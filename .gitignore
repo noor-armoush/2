@@ -1,0 +1,43 @@
+<<<<<<< HEAD
+# ملفات node_modules
+**/node_modules/
+
+# ملفات البيئة
+.env
+.env.local
+
+# ملفات النظام
+.DS_Store
+*.log
+
+# ملفات IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+=======
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+>>>>>>> cd2ecae5f7d001f7ebd33c61af3f9f1d189123d4
