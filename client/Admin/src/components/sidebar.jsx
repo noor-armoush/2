@@ -18,9 +18,14 @@ const Sidebar = () => {
       <Link to="/homePage" className={linkClass('/homePage')}>الصفحة الرئيسية</Link>
         <Link to="/allProduct" className={linkClass('/allProduct')}>كافة المنتجات</Link>
         <Link to="/ordersPage" className={linkClass('/ordersPage')}>قائمة الطلبات </Link>
+                <Link to="/shipment" className={linkClass('/shipment')}>الشحن </Link>
+
       </div>
       <div className=" mt-15">
+
         <Link to="/addProduct" className={linkClass('/addProduct')}>اضافة منتج</Link>
+        <Link to="/Variant" className={linkClass('/Variant')}>اضافة خصائص منتج</Link>
+
         <Link to="/category" className={linkClass('/category')}>الاصناف</Link>
         <Link to="/sales" className={linkClass('/sales')}>المبيعات</Link>
         </div>

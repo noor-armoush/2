@@ -3,7 +3,7 @@ import Sidebar from '../components/sidebar';
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
 
-const statuses = ['غير معدة', 'مكتمل', 'تم الإرسال للشحن', 'تم التسليم']; // ✅ تم التعديل هنا: تغيير "تم الاستلام" إلى "تم التسليم"
+const statuses = ['غير معدة', 'مكتمل', 'تم الإرسال للشحن', 'تم التسليم'];
 
 const OrderDetailsPage = () => {
   const { id } = useParams();
@@ -14,6 +14,7 @@ const OrderDetailsPage = () => {
   const [driverName, setDriverName] = useState('');
   const [driverPhone, setDriverPhone] = useState('');
   const [carType, setCarType] = useState('');
+  const [shippingSaved, setShippingSaved] = useState(false);
 
   useEffect(() => {
     const fetchOrderDetails = async () => {
@@ -21,6 +22,7 @@ const OrderDetailsPage = () => {
         const res = await axios.get(`http://localhost:5000/api/orders/${id}`);
         setOrder(res.data);
         setOrderStatus(res.data.order_status);
+        setShippingSaved(res.data.order_status !== 'تم الإرسال للشحن');
       } catch (err) {
         console.error('فشل تحميل بيانات الطلب', err);
       }
@@ -46,8 +48,35 @@ const OrderDetailsPage = () => {
       const res = await axios.get(`http://localhost:5000/api/orders/${id}`);
       setOrder(res.data);
       setOrderStatus(res.data.order_status);
+      setShippingSaved(res.data.order_status !== 'تم الإرسال للشحن');
     } catch (err) {
       console.error('فشل تحديث حالة الطلبية', err);
+    }
+  };
+
+  const saveShippingData = async () => {
+    if (!driverName || !driverPhone || !carType) {
+      alert('يرجى تعبئة كافة الحقول');
+      return;
+    }
+
+    try {
+      const now = new Date();
+      const shippingHour = now.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+
+      await axios.post(`http://localhost:5000/api/orders/${id}/shipment`, {
+        driver_name: driverName,
+        driver_phone: driverPhone,
+        shipping_car: carType,
+        shipping_hour: shippingHour,
+      });
+
+      setShippingSaved(true);
+      setShowShippingForm(false);
+      alert('تم حفظ معلومات الشحن بنجاح!');
+    } catch (err) {
+      console.error('فشل حفظ معلومات الشحن', err);
+      alert('فشل في حفظ معلومات الشحن');
     }
   };
 
@@ -55,10 +84,7 @@ const OrderDetailsPage = () => {
     return <div className="text-center mt-10">جاري تحميل بيانات الطلب...</div>;
   }
 
-  const totalAmount = products
-    .filter((p) => p.selected)
-    .reduce((total, item) => total + item.quantity * item.price, 0);
-
+  const totalAmount = products.filter((p) => p.selected).reduce((total, item) => total + item.quantity * item.price, 0);
   const selectedCount = products.filter((p) => p.selected).length;
 
   const formatDate = (dateStr) => {
@@ -105,29 +131,32 @@ const OrderDetailsPage = () => {
 
         <div className="flex justify-center flex-row-reverse space-x-2 space-x-reverse">
           {statuses.map((status, index) => {
-            const isCompleted = orderStatus === 'تم التسليم'; // ✅ تم التعديل هنا
+            const isCompleted = orderStatus === 'تم التسليم';
             const isActive = orderStatus === status;
-            const isBefore = index < statuses.indexOf(orderStatus);
+            const isBefore = index < currentStatusIndex;
+            const isAfterShipping = currentStatusIndex === 2 && !shippingSaved && index > 2;
 
             return (
               <button
                 key={status}
                 onClick={() => {
-                  if (!isBefore && !isCompleted) {
+                  if (!isBefore && !isCompleted && !isAfterShipping) {
+                    if (status === 'تم الإرسال للشحن') {
+                      setShowShippingForm(true);
+                    }
                     updateOrderStatus(status);
-                    setShowShippingForm(status === 'تم الإرسال للشحن');
                   }
                 }}
                 className={`px-4 py-2 border rounded-full transition duration-300
                   ${isCompleted && status !== 'تم التسليم'
                     ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
                     : isActive
-                    ? 'bg-cyan-700 text-white'
-                    : isBefore
-                    ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                    : 'bg-white hover:bg-blue-100'}
+                      ? 'bg-cyan-700 text-white'
+                      : isBefore || isAfterShipping
+                        ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                        : 'bg-white hover:bg-blue-100'}
                 `}
-                disabled={isBefore || (isCompleted && status !== 'تم التسليم')}
+                disabled={isBefore || isCompleted || isAfterShipping}
               >
                 {status}
               </button>
@@ -164,19 +193,7 @@ const OrderDetailsPage = () => {
               <div className="flex justify-center">
                 <button
                   className="bg-cyan-700 text-white px-4 py-2 rounded hover:bg-cyan-600"
-                  onClick={() => {
-                    if (!driverName || !driverPhone || !carType) {
-                      alert('يرجى تعبئة كافة الحقول');
-                      return;
-                    }
-                    console.log('تم حفظ معلومات الشحن:', {
-                      driverName,
-                      driverPhone,
-                      carType,
-                    });
-                    alert('تم حفظ البيانات بنجاح!');
-                    setShowShippingForm(false);
-                  }}
+                  onClick={saveShippingData}
                 >
                   حفظ البيانات
                 </button>
@@ -194,18 +211,14 @@ const OrderDetailsPage = () => {
 
         <div className="flex justify-end gap-4 mb-2">
           <button
-            onClick={() =>
-              setProducts((prev) => prev.map((product) => ({ ...product, selected: true })))
-            }
+            onClick={() => setProducts((prev) => prev.map((product) => ({ ...product, selected: true })))}
             className="px-4 py-2 bg-cyan-700 text-white rounded hover:bg-cyan-600"
           >
             تحديد الكل
           </button>
 
           <button
-            onClick={() =>
-              setProducts((prev) => prev.map((product) => ({ ...product, selected: false })))
-            }
+            onClick={() => setProducts((prev) => prev.map((product) => ({ ...product, selected: false })))}
             className="px-4 py-2 bg-cyan-700 text-white rounded hover:bg-cyan-600"
           >
             إلغاء التحديد
@@ -219,14 +232,15 @@ const OrderDetailsPage = () => {
                 <th className="px-6 py-3">اختيار</th>
                 <th className="px-6 py-3">السعر للقطعة الواحدة</th>
                 <th className="px-6 py-3">العدد</th>
+                <th className="px-6 py-3">الصفات</th>
                 <th className="px-6 py-3">اسم المنتج</th>
                 <th className="px-6 py-3">اسم الصنف</th>
-                <th className="px-6 py-3">رقم المنتج</th>
+                <th className="px-6 py-3">الصورة</th>
               </tr>
             </thead>
             <tbody>
               {products.map((product, index) => (
-                <tr key={product.id} className="border-t hover:bg-gray-50 transition">
+                <tr key={product.variant_id} className="border-t hover:bg-gray-50 transition">
                   <td className="p-3">
                     <input
                       type="checkbox"
@@ -241,9 +255,20 @@ const OrderDetailsPage = () => {
                   </td>
                   <td className="px-6 py-4">₪{product.price}</td>
                   <td className="px-6 py-4">{product.quantity}</td>
-                  <td className="px-6 py-4">{product.name}</td>
-                  <td className="px-6 py-4">{product.category}</td>
-                  <td className="px-6 py-4">{product.id}</td>
+                  <td className="px-6 py-4">
+                    {typeof product.attributes === 'object'
+                      ? Object.entries(product.attributes).map(([key, value]) => (
+                        <div key={key}>
+                          {key}: {value}
+                        </div>
+                      ))
+                      : product.attributes}
+                  </td>
+                  <td className="px-6 py-4">{product.product_name}</td>
+                  <td className="px-6 py-4">{product.category_name}</td>
+                  <td className="px-6 py-4">
+                    <img src={product.product_image} alt="product" className="w-16 h-16 object-cover rounded" />
+                  </td>
                 </tr>
               ))}
             </tbody>

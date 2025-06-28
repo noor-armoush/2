@@ -10,6 +10,9 @@ import Users from './pages/users';
 import UserReviews from './pages/userReviews';
 import UserInterface from './pages/userInterface';
 import OrderDetailsPage from './pages/OrderDetailsPage';
+import Variant from './pages/Variant';
+import Shipment from './pages/Shipment';
+
 
 const App = () => {
   return (
@@ -28,6 +31,9 @@ const App = () => {
         <Route path="/userReviews" element={<UserReviews />} />
         <Route path="/userInterface" element={<UserInterface />} />
         <Route path="/order-details/:id" element={<OrderDetailsPage />} />
+         <Route path="/Variant" element={<Variant />} />
+         <Route path="/shipment" element={<Shipment />} />
+
       </Routes>
     </Router>
   );

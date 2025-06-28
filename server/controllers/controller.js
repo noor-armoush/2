@@ -473,10 +473,208 @@ const updateOrderStatus = async (req, res) => {
   }
 };
 
+const getAllUsers = async (req, res) => {
+  try {
+    const query = `
+      SELECT 
+        u.user_id,
+        u.user_name,
+        u.user_phone,
+        u.user_email,
+        u.user_address,
+        r.region_name
+      FROM users u
+      JOIN region r ON u.region_id = r.region_id
+      ORDER BY u.user_id ASC
+    `;
+
+    const result = await db.query(query);
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Error fetching users:", error);
+    res.status(500).json({ error: "Server error" });
+  }
+};
+
+const insertShipmentData = async (req, res) => {
+  const orderId = req.params.id;
+  const { driver_name, driver_phone, shipping_car, shipping_hour } = req.body;
+
+  try {
+    const query = `
+      INSERT INTO shipment (order_id, driver_name, driver_phone, shipping_car, shipping_hour)
+      VALUES ($1, $2, $3, $4, $5)
+    `;
+
+    await db.query(query, [orderId, driver_name, driver_phone, shipping_car, shipping_hour]);
+
+    res.status(200).json({ message: 'Shipment data saved successfully' });
+  } catch (error) {
+    console.error('Error inserting shipment data:', error);
+    res.status(500).json({ error: 'Failed to insert shipment data' });
+  }
+};
+
+
+const getOrderProducts = async (req, res) => {
+  const orderId = req.params.id;
+
+  try {
+    const query = `
+      SELECT
+        v.variants_id AS variant_id,
+        v.product_image,
+        v.attributes,
+        c.category_name,
+        p.product_name,
+        ov.price,
+        ov.quantity
+      FROM order_variants ov
+      JOIN variants v ON ov.variants_id = v.variants_id
+      JOIN product p ON v.product_id = p.product_id
+      JOIN category c ON p.category_id = c.category_id
+      WHERE ov.order_id = $1;
+    `;
+
+    const result = await db.query(query, [orderId]);
+    res.status(200).json(result.rows);
+  } catch (error) {
+    console.error('❌ فشل جلب بيانات المنتجات للطلبية:', error);
+    res.status(500).json({ error: 'فشل تحميل منتجات الطلب' });
+  }
+};
+
+
+const addProduct = async (req, res) => {
+  try {
+    const { product_name, category_name, product_description, product_price, product_quantity, attributes } = req.body;
+
+    if (!product_name || !category_name || !product_description || !product_price || !product_quantity) {
+      return res.status(400).json({ message: 'الحقول الأساسية مطلوبة' });
+    }
+
+    if (Number(product_price) <= 0 || Number(product_quantity) <= 0) {
+      return res.status(400).json({ message: 'الكمية والسعر يجب أن تكون أكبر من صفر' });
+    }
+
+    const insertProductQuery = `
+      INSERT INTO product (product_name, category_id, product_description)
+      VALUES ($1, (SELECT category_id FROM category WHERE category_name = $2), $3)
+      RETURNING product_id
+    `;
+
+    const result = await db.query(insertProductQuery, [product_name, category_name, product_description]);
+    const productId = result.rows[0].product_id;
+
+    const insertVariantQuery = `
+      INSERT INTO variants (product_id, price, stock, attributes)
+      VALUES ($1, $2, $3, $4)
+    `;
+
+    await db.query(insertVariantQuery, [productId, product_price, product_quantity, attributes ? JSON.stringify(attributes) : null]);
+
+    res.status(201).json({ message: 'تم إضافة المنتج بنجاح' });
+
+  } catch (error) {
+    console.error('Error adding product:', error);
+    res.status(500).json({ message: 'خطأ في إضافة المنتج' });
+  }
+};
+// ✅ Get products by category name
+const getProductsByCategoryName = async (req, res) => {
+  const { categoryName } = req.params;
+
+  try {
+    const query = `
+      SELECT p.product_id, p.product_name
+      FROM product p
+      JOIN category c ON p.category_id = c.category_id
+      WHERE c.category_name = $1
+      ORDER BY p.product_name ASC
+    `;
+    const result = await db.query(query, [categoryName]);
+    res.status(200).json(result.rows);
+  } catch (error) {
+    console.error("Error fetching products by category:", error);
+    res.status(500).json({ message: "خطأ في جلب المنتجات حسب الصنف" });
+  }
+};
+const addVariant = async (req, res) => {
+  try {
+    const { product_id, product_price, product_quantity, attributes } = req.body;
+
+    if (!product_id || !product_price || !product_quantity) {
+      return res.status(400).json({ message: "الحقول الأساسية مطلوبة" });
+    }
+
+    const query = `
+      INSERT INTO variants (product_id, price, stock, attributes)
+      VALUES ($1, $2, $3, $4)
+      RETURNING *;
+    `;
+
+    const result = await db.query(query, [
+      product_id,
+      product_price,
+      product_quantity,
+      attributes ? JSON.stringify(attributes) : null,
+    ]);
+
+    res.status(201).json({ success: true, variant: result.rows[0] });
+  } catch (error) {
+    console.error("Error adding variant:", error);
+    res.status(500).json({ message: "خطأ في إضافة الخصائص" });
+  }
+};
+// ✅ إضافة شحنة جديدة مع التحقق من عدم تكرار رقم الهاتف
+const addShipmentEntry = async (req, res) => {
+  const { driver_name, driver_phone, shipping_car } = req.body;
+
+  if (!driver_name || !driver_phone || !shipping_car) {
+    return res.status(400).json({ message: 'جميع الحقول مطلوبة' });
+  }
+
+  try {
+    // 🔍 تحقق من وجود رقم الهاتف مسبقًا
+    const checkQuery = `SELECT * FROM shipment WHERE driver_phone = $1`;
+    const checkResult = await db.query(checkQuery, [driver_phone]);
+
+    if (checkResult.rows.length > 0) {
+      return res.status(409).json({ message: 'رقم الهاتف موجود مسبقًا' });
+    }
+
+    // ✅ إذا ما في تكرار، أضف الشحنة
+    const insertQuery = `
+      INSERT INTO shipment (driver_name, driver_phone, shipping_car)
+      VALUES ($1, $2, $3)
+    `;
+    await db.query(insertQuery, [driver_name, driver_phone, shipping_car]);
+
+    res.status(201).json({ message: 'تمت إضافة بيانات الشحن بنجاح' });
+  } catch (error) {
+    console.error('فشل في إضافة الشحنة:', error);
+    res.status(500).json({ message: 'فشل في إضافة بيانات الشحن' });
+  }
+};
+
+
+// جلب كل الشحنات
+const getAllShipments = async (req, res) => {
+  try {
+    const result = await db.query(`SELECT * FROM shipment ORDER BY shipment_id DESC`);
+    res.json(result.rows);
+  } catch (error) {
+    console.error('فشل في جلب بيانات الشحن:', error);
+    res.status(500).json({ message: 'فشل في جلب بيانات الشحن' });
+  }
+};
 
 
 module.exports = { getAllProducts, getAllCategories, deleteProduct, getProductVariants,
    updateProduct , deleteVariant , getSingleVariant , updateVariant
   , updateCategory , addCategory , deleteCategory , getProductsByCategory , getAllRegions ,  
-  getAllOrders ,getOrderById ,  updateOrderStatus
+  getAllOrders ,getOrderById ,  updateOrderStatus , getAllUsers ,   insertShipmentData ,   getOrderProducts
+  , addProduct , getProductsByCategoryName , addVariant , addShipmentEntry , getAllShipments
+
+
  };

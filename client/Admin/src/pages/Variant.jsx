@@ -3,19 +3,18 @@ import axios from 'axios';
 import Sidebar from '../components/sidebar';
 import Header from '../components/header';
 
-const AddProduct = () => {
+const Variant = () => {
   const [formData, setFormData] = useState({
-    product_name: '',
     category_name: '',
-    product_description: '',
+    product_id: '',
     product_price: '',
     product_quantity: '',
-    image: null,
   });
 
   const [attributes, setAttributes] = useState({});
   const [newAttr, setNewAttr] = useState({ key: '', value: '' });
   const [categories, setCategories] = useState([]);
+  const [products, setProducts] = useState([]);
 
   const categoryAttributes = {
     "طيور": ["اللون"],
@@ -37,19 +36,23 @@ const AddProduct = () => {
     fetchCategories();
   }, []);
 
-  const handleChange = (e) => {
-    const { name, value, files } = e.target;
-    if (name === 'image') {
-      setFormData({ ...formData, image: files[0] });
-    } else {
-      setFormData({ ...formData, [name]: value });
-    }
+  const handleChange = async (e) => {
+    const { name, value } = e.target;
+    setFormData({ ...formData, [name]: value });
 
     if (name === 'category_name') {
       const keys = categoryAttributes[value] || [];
       const initialAttrs = {};
       keys.forEach((k) => (initialAttrs[k] = ""));
       setAttributes(initialAttrs);
+
+      try {
+        const res = await axios.get(`http://localhost:5000/api/products-by-category/${value}`);
+        setProducts(res.data);
+      } catch (error) {
+        console.error("Failed to fetch products", error);
+        setProducts([]);
+      }
     }
   };
 
@@ -67,13 +70,12 @@ const AddProduct = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!formData.product_name.trim() || !formData.product_name.trim().split(" ").some(word => word.length >= 2)) {
-      alert("اسم المنتج يجب أن يحتوي على كلمة واحدة على الأقل لا تقل عن حرفين");
+    if (!formData.product_id) {
+      alert("يرجى اختيار منتج");
       return;
     }
-
-    if (!formData.category_name || !formData.product_description) {
-      alert("يرجى تعبئة جميع الحقول الإلزامية");
+    if (!formData.category_name) {
+      alert("يرجى اختيار صنف");
       return;
     }
     if (Number(formData.product_price) <= 0 || Number(formData.product_quantity) <= 0) {
@@ -81,23 +83,23 @@ const AddProduct = () => {
       return;
     }
 
-    // نرسل الخصائص كـ JSON string
     const finalAttributes = Object.keys(attributes).length ? attributes : null;
 
-    const payload = {
-      product_name: formData.product_name,
+    const data = {
+      product_id: formData.product_id,
       category_name: formData.category_name,
-      product_description: formData.product_description,
       product_price: formData.product_price,
       product_quantity: formData.product_quantity,
       attributes: finalAttributes,
     };
 
     try {
-      const res = await axios.post("http://localhost:5000/api/add-product", payload);
+      const res = await axios.post("http://localhost:5000/api/add-variant", data);
       console.log("تم الحفظ بنجاح:", res.data);
+      alert("تم إضافة الخصائص بنجاح");
     } catch (error) {
       console.error("فشل إرسال البيانات:", error);
+      alert("حدث خطأ أثناء الإضافة");
     }
   };
 
@@ -105,20 +107,13 @@ const AddProduct = () => {
     <div className="flex flex-row-reverse h-screen">
       <Sidebar />
       <div className="flex-1 flex flex-col max-h-screen">
-        <div className=" text-right w-full bg-white shadow-sm">
+        <div className="text-right w-full bg-white shadow-sm">
           <Header />
         </div>
 
         <div className="flex-1 bg-[#F6F7FB] p-8 flex justify-end items-start pr-8">
           <form className="w-full max-w-xl space-y-6" onSubmit={handleSubmit}>
             <div className="grid grid-cols-2 gap-4">
-              <input
-                name="product_name"
-                value={formData.product_name}
-                onChange={handleChange}
-                className="border px-4 py-2 rounded text-right bg-white"
-                placeholder="اسم المنتج"
-              />
               <select
                 name="category_name"
                 value={formData.category_name}
@@ -132,15 +127,21 @@ const AddProduct = () => {
                   </option>
                 ))}
               </select>
-            </div>
 
-            <textarea
-              name="product_description"
-              value={formData.product_description}
-              onChange={handleChange}
-              className="w-full border px-4 py-2 rounded text-right h-28 bg-white"
-              placeholder="وصف المنتج"
-            />
+              <select
+                name="product_id"
+                value={formData.product_id}
+                onChange={handleChange}
+                className="border px-4 py-2 rounded text-right bg-white"
+              >
+                <option value="">اختر المنتج</option>
+                {products.map((prod) => (
+                  <option key={prod.product_id} value={prod.product_id}>
+                    {prod.product_name}
+                  </option>
+                ))}
+              </select>
+            </div>
 
             <div className="grid grid-cols-2 gap-4">
               <input
@@ -198,43 +199,18 @@ const AddProduct = () => {
               </div>
             </div>
 
-            {/* شكل رفع الصورة معلق فقط، لا يتم إرسال الصورة ولا التعامل معها في الباك اند */}
-            <div className="flex flex-col items-end">
-              <label className="mb-2">
-                <input
-                  type="file"
-                  name="image"
-                  onChange={handleChange}
-                  className="hidden"
-                />
-                <button
-                  type="button"
-                  className="px-6 py-2 rounded bg-blue-300 hover:bg-blue-200"
-                >
-                  تحميل صورة من جهازك
-                </button>
-              </label>
-
-              <div className="flex flex-row-reverse items-end justify-between gap-4">
-                <div className="w-40 h-40 border rounded flex items-center justify-center bg-gray-100">
-                  {formData.image ? (
-                    <img
-                      src={URL.createObjectURL(formData.image)}
-                      alt="Preview"
-                      className="max-h-full max-w-full object-contain"
-                    />
-                  ) : (
-                    <span className="text-gray-400">📷</span>
-                  )}
-                </div>
-
-                <button
-                  type="submit"
-                  className="px-6 py-2 bg-blue-300 hover:bg-blue-200 rounded"
-                >
-                  إضافة المنتج
-                </button>
+            {/* صورة مجرد شكل ثابت */}
+            <div className="flex flex-row-reverse items-end justify-between gap-4">
+              <div className="w-40 h-40 border rounded flex items-center justify-center bg-gray-100 text-gray-400 text-6xl">
+                📷
               </div>
+
+              <button
+                type="submit"
+                className="px-6 py-2 bg-blue-300 hover:bg-blue-200 rounded"
+              >
+                إضافة الخصائص
+              </button>
             </div>
           </form>
         </div>
@@ -243,4 +219,4 @@ const AddProduct = () => {
   );
 };
 
-export default AddProduct;
+export default Variant;

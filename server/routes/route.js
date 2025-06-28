@@ -30,5 +30,15 @@ router.get('/orders',productController. getAllOrders);
 router.get('/orders/:id',productController.getOrderById);
 router.put('/orders/:id/status',productController.updateOrderStatus);
 
+router.get('/users',productController. getAllUsers);
+router.post('/orders/:id/shipment', productController.insertShipmentData);
+
+router.get('/orders/:id/products',productController. getOrderProducts);
+router.post('/add-product', productController.addProduct);
+router.get('/products-by-category/:categoryName',productController.getProductsByCategoryName);
+
+router.post('/add-variant', productController.addVariant);
+router.post('/shipment', productController.addShipmentEntry);
+router.get('/shipment', productController.getAllShipments);
 
 module.exports = router;

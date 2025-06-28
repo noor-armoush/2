@@ -1,67 +1,32 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import axios from "axios";
 import Sidebar from "../components/sidebar";
 import SearchInput from "../components/SearchInput";
 
-const users = [
-  {
-    id: "00001",
-    name: "مستخدم 1",
-    region: "منطقة 1",
-    phone: "0000000000",
-    email: "example1@gmail.com",
-    address: "عنوان 1",
-  },
-  {
-    id: "00002",
-    name: "مستخدم 2",
-    region: "منطقة 2",
-    phone: "0000000000",
-    email: "example@gmail.com",
-    address: "عنوان 1",
-  },
-  {
-    id: "00003",
-    name: "مرح",
-    region: "منطقة 3",
-    phone: "0000000000",
-    email: "example@gmail.com",
-    address: "عنوان 1",
-  },
-  {
-    id: "00004",
-    name: "مستخدم 4",
-    region: "منطقة 1",
-    phone: "0000000000",
-    email: "example@gmail.com",
-    address: "عنوان 1",
-  },
-  {
-    id: "00005",
-    name: "مستخدم 5",
-    region: "منطقة 1",
-    phone: "0000000000",
-    email: "example@gmail.com",
-    address: "عنوان 1",
-  },
-  {
-    id: "00006",
-    name: "مستخدم 6",
-    region: "منطقة 3",
-    phone: "0000000000",
-    email: "example@gmail.com",
-    address: "عنوان 1",
-  },
-];
-
 const Users = () => {
   const [searchTerm, setSearchTerm] = useState("");
+  const [users, setUsers] = useState([]);
+
+  // Fetch users from the backend
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const response = await axios.get("http://localhost:5000/api/users"); // غيّر الرابط إذا احتجت
+        setUsers(response.data);
+      } catch (error) {
+        console.error("Error fetching users:", error);
+      }
+    };
+
+    fetchUsers();
+  }, []);
 
   const filteredUsers = users.filter((user) => {
     const search = searchTerm.toLowerCase();
     return (
-      user.name.toLowerCase().includes(search) ||
-      user.email.toLowerCase().includes(search) ||
-      user.id.includes(search)
+      user.user_name.toLowerCase().includes(search) ||
+      user.user_email.toLowerCase().includes(search) ||
+      user.user_id.toString().includes(search)
     );
   });
 
@@ -72,7 +37,6 @@ const Users = () => {
       <div className="flex-1 p-6 text-right space-y-4">
         <SearchInput value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
 
-     
         <div className="overflow-x-auto bg-white shadow-md rounded-md">
           <table className="min-w-full text-center border-collapse">
             <thead className="bg-cyan-500 text-white">
@@ -88,12 +52,12 @@ const Users = () => {
             <tbody>
               {filteredUsers.map((user, index) => (
                 <tr key={index} className="border-t hover:bg-gray-50">
-                  <td className="px-6 py-4">{user.address}</td>
-                  <td className="px-6 py-4">{user.email}</td>
-                  <td className="px-6 py-4">{user.phone}</td>
-                  <td className="px-6 py-4">{user.region}</td>
-                  <td className="px-6 py-4">{user.name}</td>
-                  <td className="px-6 py-4">{user.id}</td>
+                  <td className="px-6 py-4">{user.user_address}</td>
+                  <td className="px-6 py-4">{user.user_email}</td>
+                  <td className="px-6 py-4">{user.user_phone}</td>
+                  <td className="px-6 py-4">{user.region_name}</td>
+                  <td className="px-6 py-4">{user.user_name}</td>
+                  <td className="px-6 py-4">{user.user_id}</td>
                 </tr>
               ))}
               {filteredUsers.length === 0 && (
